@@ -1,3 +1,4 @@
+import { initModeration,renderModeration } from './moderator-ui.js';
 const $=id=>document.getElementById(id);
 const node=(tag,text,className)=>{const n=document.createElement(tag);if(text!==undefined)n.textContent=text;if(className)n.className=className;return n;};
 let token=sessionStorage.getItem('bouncer-token')||'',snapshot=null,selected=null,previews={};
@@ -11,10 +12,11 @@ function render(){
  $('clear-demo').disabled=!snapshot.isDemo;
  $('demo').disabled=Boolean(snapshot.approved.length||snapshot.participants.length);
  const rows=snapshot.rows;
- const stats=[['In supplied snapshot',rows.filter(r=>r.membership==='join').length],['On approved list',rows.filter(r=>r.status==='on-list').length],['Need organiser review',rows.filter(r=>reviewStatuses.includes(r.status)).length],['Recorded exceptions',rows.filter(r=>['exception','changed-number'].includes(r.status)).length]];
+ const stats=[['Current participants',rows.filter(r=>r.membership==='join').length],['On approved list',rows.filter(r=>r.status==='on-list').length],['Need organiser review',rows.filter(r=>reviewStatuses.includes(r.status)).length],['Recorded exceptions',rows.filter(r=>['exception','changed-number'].includes(r.status)).length]];
  $('stats').replaceChildren(...stats.map(([title,value])=>{const div=node('div',undefined,'stat');div.append(node('strong',String(value)),node('small',title));return div;}));
  const imports=snapshot.imports;
- $('freshness').textContent=`Room: ${snapshot.settings.roomId||'not configured'} · Approved list: ${imports.approved?new Date(imports.approved.at).toLocaleString('en-GB',{timeZone:'Europe/London'})+' London time':'not loaded'} · Observed identities supplement an uploaded snapshot.`;
+ $('sync-status').textContent=snapshot.rosterSync?`Last sync: ${snapshot.rosterSync.count} members; ${snapshot.rosterSync.missingNumbers} without a bridge number. Review unresolved entries below.`:'Requires the Hub members API. Missing numbers stay available for review.';
+ $('freshness').textContent=`Room: ${snapshot.settings.roomId||'not configured'} · Approved list: ${imports.approved?new Date(imports.approved.at).toLocaleString('en-GB',{timeZone:'Europe/London'})+' London time':'not loaded'} · Group sync: ${snapshot.rosterSync?new Date(snapshot.rosterSync.at).toLocaleString('en-GB',{timeZone:'Europe/London'})+' London time':'not synced'}. Membership events update observed identities.`;
  let shown=rows;
  const filter=$('filter').value;
  if(filter==='review')shown=rows.filter(r=>reviewStatuses.includes(r.status));
@@ -34,7 +36,7 @@ function render(){
  }
  $('audit').replaceChildren(...snapshot.audit.slice(-20).reverse().map(a=>node('div',`${new Date(a.at).toLocaleString('en-GB',{timeZone:'Europe/London'})} · ${a.action}${a.kind?' · '+a.kind:''}${a.outcome?' · '+a.outcome:''}${a.note?' · '+a.note:''}`,'audit-item')));
 }
-async function refresh(settings=false){snapshot=await api('state');if(settings){$('room').value=snapshot.settings.roomId;$('country').value=snapshot.settings.country;$('exempt').value=snapshot.settings.exemptUserIds.join('\n');}render();}
+async function refresh(settings=false){snapshot=await api('state');if(settings){$('room').value=snapshot.settings.roomId;$('country').value=snapshot.settings.country;$('exempt').value=snapshot.settings.exemptUserIds.join('\n');}render();renderModeration(snapshot,settings);}
 $('connect').onclick=async()=>{token=$('token').value.trim();try{await refresh(true);sessionStorage.setItem('bouncer-token',token);notice('Connected. Load the demo or configure one group and preview your lists.');}catch(e){notice(e.message);}};
 $('registration').onclick=async()=>{try{const data=await api('registration');const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const link=document.createElement('a');link.href=url;link.download='whatsapp-bouncer.json';link.click();URL.revokeObjectURL(url);notice('Registration JSON downloaded. Send it privately to your Hub operator; it contains the webhook secret.');}catch(e){notice(e.message);}};
 $('demo').onclick=async()=>{try{await api('demo',{});await refresh(true);notice('Demo loaded: two exact matches, an unmatched number, an opaque identity, a duplicate and a verified changed number. No real group connected.');}catch(e){notice(e.message);}};
@@ -62,5 +64,8 @@ $('close-review').onclick=()=>$('review-dialog').close();
 $('review-form').onsubmit=async e=>{e.preventDefault();try{const date=$('expiry').value;const expiresAt=date?new Date(date+'T23:59:59Z').toISOString():null;await api(`participants/${selected.id}/review`,{signature:selected.signature,outcome:$('outcome').value,linkedReference:$('linked-reference').value,note:$('review-note').value,expiresAt});$('review-dialog').close();await refresh();notice('Resolution recorded. No group action taken.');}catch(e){$('review-error').textContent=e.message;}};
 $('filter').onchange=()=>snapshot&&render();$('show-numbers').onchange=()=>snapshot&&render();$('refresh').onclick=()=>refresh().catch(e=>notice(e.message));
 $('export').onclick=async()=>{try{const data=await api('report');const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const link=document.createElement('a');link.href=url;link.download='bouncer-review-report.json';link.click();URL.revokeObjectURL(url);notice('Report exported. It contains full phone numbers and organiser notes; share privately.');}catch(e){notice(e.message);}};
+initModeration({api,notice,refresh});
 if(token)refresh(true).catch(e=>notice(e.message));
 setInterval(()=>{if(snapshot)refresh().catch(e=>notice(e.message));},10000);
+
+$('sync-members').onclick=async()=>{const button=$('sync-members');button.disabled=true;try{notice('Retrieving the group member list from the Hub…');const result=await api('participants/sync',{});await refresh();notice(`Synced ${result.count} group members. ${result.missingNumbers} without bridge numbers need a mapping or organiser review.`);}catch(e){notice(e.message);}finally{button.disabled=false;}};

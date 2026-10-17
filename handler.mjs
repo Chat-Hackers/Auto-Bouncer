@@ -1,7 +1,8 @@
 import { operate,secureEqual } from './operations.mjs';
 import { registrationFor } from './registration.mjs';
+import { fetchMemberSnapshot } from './hub-members.mjs';
 export const responseJSON=(data,status=200,extra={})=>new Response(JSON.stringify(data),{status,headers:{'Content-Type':'application/json','Cache-Control':'no-store','Referrer-Policy':'no-referrer','X-Content-Type-Options':'nosniff',...extra}});
-export async function handleRequest(request,{store,identity,origin,hosted=false}){
+export async function handleRequest(request,{store,identity,origin,hosted=false,hubOrigin,hubFetch}){
  const url=new URL(request.url);
  // Vercel rewrites pass an internal route; authentication still applies to every route.
  if(hosted&&url.searchParams.has('__route'))url.pathname=url.searchParams.get('__route');
@@ -23,6 +24,13 @@ export async function handleRequest(request,{store,identity,origin,hosted=false}
     const length=Number(request.headers.get('content-length')||0);if(length>1500000)return responseJSON({error:'Request too large'},413);
     let text='';const reader=request.body?.getReader();if(reader){const decoder=new TextDecoder();let bytes=0;while(true){const chunk=await reader.read();if(chunk.done)break;bytes+=chunk.value.byteLength;if(bytes>1500000){await reader.cancel();return responseJSON({error:'Request too large'},413);}text+=decoder.decode(chunk.value,{stream:true});}text+=decoder.decode();}
     input=JSON.parse(text||'{}');
+  }
+  if(request.method==='POST'&&url.pathname==='/api/participants/sync'){
+    const state=await store.read();
+    if(state.isDemo)throw Error('Clear the labelled demo before syncing a real group');
+    if(!state.settings.roomId)throw Error('Save your group room ID before syncing');
+    // Fetch once outside database retries; browser payloads cannot supply a trusted roster.
+    input=await fetchMemberSnapshot(hubOrigin,state.settings.roomId,identity.secret,hubFetch);
   }
   const context={method:request.method,url,headers,input};
   const result=request.method==='GET'?await operate(await store.read(),context,identity):await store.update(state=>operate(state,context,identity));

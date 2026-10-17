@@ -3,14 +3,14 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Approved-number comparison and organiser review for Chat Hackers",
+  "description": "Combined participant checks and message moderation for Chat Hackers",
   "engines": {
     "node": ">=22.16.0"
   },
   "scripts": {
     "start": "node server.mjs",
     "dev": "node --watch server.mjs",
-    "build": "node --check server.mjs && node --check bouncer.mjs && node --check operations.mjs && node --check handler.mjs && node --check storage.mjs && node --check api/index.mjs && node --check public/app.js",
+    "build": "node --check server.mjs && node --check bouncer.mjs && node --check operations.mjs && node --check handler.mjs && node --check storage.mjs && node --check api/index.mjs && node --check moderation.mjs && node --check moderation-operations.mjs && node --check hub-members.mjs && node --check public/app.js && node --check public/moderator-ui.js",
     "test": "node --test tests/*.test.mjs",
     "setup:secrets": "node scripts/setup-secrets.mjs"
   },

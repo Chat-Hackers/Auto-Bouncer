@@ -9,7 +9,7 @@ export async function getRuntime(env=process.env){
  if(!/^[a-zA-Z0-9_-]{1,100}$/.test(env.BOUNCER_INSTANCE_ID))throw Error('Invalid instance id');
  const {neon}=await import('@neondatabase/serverless');
  const hash=digest(env.MODULE_SECRET);
- return {store:neonStore(neon(env.DATABASE_URL),env.BOUNCER_INSTANCE_ID),identity:{adminToken:env.ADMIN_TOKEN,secret:env.MODULE_SECRET,uuid:env.MODULE_UUID||`${hash.slice(0,8)}-${hash.slice(8,12)}-4${hash.slice(13,16)}-8${hash.slice(17,20)}-${hash.slice(20,32)}`},origin:env.PUBLIC_URL,hosted:true};
+ return {store:neonStore(neon(env.DATABASE_URL),env.BOUNCER_INSTANCE_ID),identity:{adminToken:env.ADMIN_TOKEN,secret:env.MODULE_SECRET,uuid:env.MODULE_UUID||`${hash.slice(0,8)}-${hash.slice(8,12)}-4${hash.slice(13,16)}-8${hash.slice(17,20)}-${hash.slice(20,32)}`},origin:env.PUBLIC_URL,hubOrigin:env.HUB_URL,hosted:true};
 }
 export default {
  async fetch(request){

@@ -1,6 +1,7 @@
 import { initialState } from './operations.mjs';
 // Compare-and-swap is atomic in Postgres. Each retry recomputes a pure operation;
-// these operations have no external sends or removal side effects.
+// these operations have no external sends or removal side effects. A proposed
+// warning is returned to the Hub only after the successful state commit.
 export function optimisticStore({load,compareAndSwap},attempts=4){
  return {read:async()=>structuredClone((await load()).data),update:async operation=>{
   for(let i=0;i<attempts;i++){

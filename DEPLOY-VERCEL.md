@@ -61,3 +61,10 @@ The hosted app uses parameterised Neon HTTP queries. For this small prototype, o
 The prototype caps stored state at 2 MB in addition to the import row limits. It is intended for small groups; export and archive before the audit history grows too large. A larger multi-group service should move records into separate tables with pagination, retention controls and individual organiser accounts.
 
 The app has no runtime dependency on a writable filesystem in Vercel. Local `npm start` still uses the existing file-backed demo and the same business logic. Run `npm ci`, `npm run build`, and `npm test` locally to validate the package. Tests use an embedded Postgres engine for SQL and concurrency checks; live Neon connectivity, Vercel routing and bridge delivery require the deployment checks above.
+
+## Automatic participant lookup
+
+Set `HUB_URL` to the HTTPS origin of your Tool Hub, then redeploy. The Hub operator must implement the authenticated members API and verified phone enrichment in [HUB-MEMBERS.md](HUB-MEMBERS.md). The current upstream Hub does not yet provide that API. Use **Sync group members** for the full roster; enriched membership events maintain changes between syncs. No SQL migration or registration JSON change is required. CSV mapping remains a fallback.
+
+## Combined moderator upgrade
+This release also runs message moderation in the existing serverless app and Postgres state. No new secret or database schema is required. Download and replace the Hub registration to add m.room.message alongside m.room.member. See MODERATION.md. Moderation starts in demo mode; live warnings require an explicit organiser configuration change.

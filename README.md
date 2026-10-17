@@ -1,8 +1,10 @@
-# WhatsApp Bouncer
+# Auto Bouncer & Moderator
+
+**Combined tool:** participant checks and Auto Moderator now share this dashboard, database, access token and Hub registration. See [MODERATION.md](MODERATION.md) for rules, warnings, review and the upgrade steps. Moderation starts in demo mode; existing participant data is preserved.
 
 **Manual Vercel hosting:** see [DEPLOY-VERCEL.md](DEPLOY-VERCEL.md). The hosted version uses Neon Postgres, server environment secrets, and a **Download Hub JSON** button. The local demo below remains available independently.
 
-A local, report-first prototype for comparing an organiser's approved-number CSV with an uploaded group participant snapshot. It records human-reviewed exceptions and observes future Matrix membership events after Hub registration. It sends no public messages, kicks or bans. A number match is only a match to the supplied list, not proof of ownership, affiliation or eligibility.
+A local, report-first prototype for comparing an organiser's approved-number CSV with an uploaded group participant snapshot. It records human-reviewed exceptions and observes future Matrix membership events after Hub registration. Participant checks send no public messages. Message moderation can return warnings after live mode is explicitly enabled. Kicks and bans remain disabled. A number match is only a match to the supplied list, not proof of ownership, affiliation or eligibility.
 
 ## Start
 
@@ -46,11 +48,11 @@ Guest and changed-number decisions are tied to a signature of the participant id
 
 ## Join-event integration
 
-Copy `.env.example` to `.env`; set `PUBLIC_URL` to this tool's own HTTPS origin and optionally set a fixed `ADMIN_TOKEN`. Run or restart the service. Startup prints a small registration JSON and saves it to `data/whatsapp-bouncer.json`. Share it privately with the Hub operator, retaining the `?hook=` query in its URL. Module id: `whatsapp-bouncer`; event subscription: `m.room.member`. The operator must register and activate it for the configured room. Keep this separate from the scheduler (5057) and moderator (5058).
+Copy `.env.example` to `.env`; set `PUBLIC_URL` to this tool's own HTTPS origin and optionally set a fixed `ADMIN_TOKEN`. Run or restart the service. Startup prints a small registration JSON and saves it to `data/whatsapp-bouncer.json`. Share it privately with the Hub operator, retaining the `?hook=` query in its URL. Module id: `whatsapp-bouncer`; event subscriptions: `m.room.member` and `m.room.message`. The operator must register and activate it for the configured room. Keep this separate from the scheduler (5057). The former moderator on 5058 is superseded by this combined app.
 
 The Hub sends `{event, botUserId, displayName}`. This app authenticates a webhook secret in the registration URL because the inspected Hub does not attach a bearer header. Membership targets use `event.state_key`, not `event.sender` (which can be the inviting/removing admin). Joins and leave/ban observations update a mapped identity. Duplicate events are ignored for seven days; older timestamped observations do not override newer ones.
 
-The app always responds with `{"success":true,"response":{}}`: it does not reveal approved-list membership to the group. It never parses numbers from display names, sender IDs, or LID-looking strings. An unmapped identity is recorded as number unavailable. Import explicit phone + Matrix-ID mappings when the operator can provide them.
+Membership observations respond with `{"success":true,"response":{}}` and never reveal approved-list membership to the group. Message events can return configured warnings only after live moderation is explicitly enabled. It never parses numbers from display names, sender IDs, or LID-looking strings. An unmapped identity is recorded as number unavailable. Import explicit phone + Matrix-ID mappings when the operator can provide them.
 
 An uploaded roster is a snapshot, not an authoritative live member list. The tool cannot reconstruct joins missed while it was offline. Replacing a participant snapshot replaces its observed roster too; preview detects concurrent changes before apply. Missing `matrix_user_id` entries cannot reliably be correlated with later events, which may create a separate unknown row. A direct membership-database API integration and full roster enumeration are not included.
 
@@ -92,3 +94,7 @@ Organiser routes require `Authorization: Bearer <ADMIN_TOKEN>`:
 | POST /api/demo/reset | Clear only a labelled demo |
 
 `POST /?hook=<secret>` receives membership events. `GET /health` checks readiness without authentication.
+
+## Automatic group participants
+
+The **Sync group members** button and optional verified-number membership enrichment support the Hub contract in [HUB-MEMBERS.md](HUB-MEMBERS.md). This requires a Hub members API that is not present in the inspected upstream code. Set `HUB_URL` after your Hub operator implements it. The approved-number CSV is still required; the participant CSV becomes optional. Unknown numbers remain flagged and no removals occur.

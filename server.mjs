@@ -27,12 +27,12 @@ const origin=process.env.PUBLIC_URL||`http://localhost:${process.env.PORT||5059}
 const server=http.createServer(async(req,res)=>{
  try{
   const url=new URL(req.url,'http://localhost');
-  const files={'/':'index.html','/app.js':'app.js','/style.css':'style.css'};
+  const files={'/':'index.html','/app.js':'app.js','/style.css':'style.css','/moderator-ui.js':'moderator-ui.js'};
   if(req.method==='GET'&&files[url.pathname]){
    const file=files[url.pathname];res.writeHead(200,{'Content-Type':file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':'text/html','Cache-Control':'no-store','Referrer-Policy':'no-referrer','Content-Security-Policy':"default-src 'self'; style-src 'self'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'",'X-Content-Type-Options':'nosniff'});res.end(fs.readFileSync(path.join(root,'public',file)));return;
   }
   const request=new Request(url,{method:req.method,headers:req.headers,...(['GET','HEAD'].includes(req.method)?{}:{body:Readable.toWeb(req),duplex:'half'})});
-  const response=await handleRequest(request,{store,identity,origin});
+  const response=await handleRequest(request,{store,identity,origin,hubOrigin:process.env.HUB_URL});
   res.writeHead(response.status,Object.fromEntries(response.headers));res.end(Buffer.from(await response.arrayBuffer()));
  }catch{res.writeHead(500,{'Content-Type':'application/json'});res.end(JSON.stringify({error:'Local server request failed'}));}
 });

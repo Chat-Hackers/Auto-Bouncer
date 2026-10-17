@@ -35,6 +35,6 @@ test('imports → compare → review, join webhook and restart persistence',asyn
   const current=(await api('/api/state')).data;assert.equal(current.rows.at(-1).userId,'@new_lid:test');assert.equal(current.rows.at(-1).status,'missing-number');
   await stop();await start();assert.equal((await api('/api/state')).data.rows[1].status,'changed-number');
   assert.equal((await api('/api/demo',{})).code,400);assert.equal((await api('/api/demo/reset',{})).code,400);
-  const registration=JSON.parse(fs.readFileSync(path.join(dir,'whatsapp-bouncer.json'),'utf8'));assert.deepEqual(registration.event_types,['m.room.member']);
+  const registration=JSON.parse(fs.readFileSync(path.join(dir,'whatsapp-bouncer.json'),'utf8'));assert.deepEqual(registration.event_types,['m.room.member','m.room.message']);
  }finally{await stop();fs.rmSync(dir,{recursive:true,force:true});}
 });
