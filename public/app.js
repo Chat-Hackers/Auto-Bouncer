@@ -67,7 +67,7 @@ function fillForms(){
  $('room').value=s.roomId;$('country').value=s.country;$('auto-kick').value=s.autoKick||'off';$('exempt').value=s.exemptUserIds.join('\n');
  $('mod-mode').value=c.mode;$('mod-warning').value=c.warning;$('mod-rules').replaceChildren(...c.rules.map(ruleRow));
  const i=snapshot.imports.approved;$('approved-summary').textContent=i?`${i.rows} numbers saved${i.issues?`, ${i.issues} with problems`:''}.`:'No list saved yet.';
- if(!s.roomId)$('settings-card').open=true;
+ $('room-form').classList.toggle('needs',!s.roomId);
 }
 function renderPills(){
  const live=snapshot.moderation.config.mode==='live'&&!snapshot.isDemo,auto=snapshot.settings.autoKick||'off';
@@ -78,7 +78,10 @@ async function refresh(forms=false){snapshot=await api('state');$('login').hidde
 
 $('login').onsubmit=run(async e=>{e.preventDefault();token=$('token').value.trim();await refresh(true);try{sessionStorage.setItem('bouncer-token',token);}catch{}notice('');});
 $('logout').onclick=()=>{try{sessionStorage.removeItem('bouncer-token');}catch{}location.reload();};
-$('settings').onsubmit=run(async e=>{e.preventDefault();await api('settings',{roomId:$('room').value.trim(),country:$('country').value,autoKick:$('auto-kick').value,exemptUserIds:$('exempt').value.split('\n').map(s=>s.trim()).filter(Boolean)});await refresh(true);notice('Settings saved.');});
+// The room is saved on its own; each tool re-sends the saved room so neither depends on the other.
+const saveSettings=async changes=>{const s=snapshot.settings;await api('settings',{roomId:s.roomId,country:s.country,autoKick:s.autoKick||'off',exemptUserIds:s.exemptUserIds,...changes});await refresh(true);};
+$('room-form').onsubmit=run(async e=>{e.preventDefault();await saveSettings({roomId:$('room').value.trim()});notice('Room saved. Both tools now use this group.');});
+$('settings').onsubmit=run(async e=>{e.preventDefault();await saveSettings({country:$('country').value,autoKick:$('auto-kick').value,exemptUserIds:$('exempt').value.split('\n').map(s=>s.trim()).filter(Boolean)});notice('Bouncer settings saved.');});
 $('approved-file').onchange=run(async()=>{const file=$('approved-file').files[0];if(!file)return;if(file.size>1000000)throw Error('Choose a CSV under 1 MB');$('approved-csv').value=await file.text();});
 $('approved-save').onclick=run(async()=>{
  const csv=$('approved-csv').value;const preview=await api('import/preview',{kind:'approved',csv});

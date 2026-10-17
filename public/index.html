@@ -7,6 +7,8 @@
 <p id="notice" role="status" aria-live="polite"></p>
 <div id="app" hidden>
 
+<form id="room-form" class="card room"><label>Group room ID <span>the roomId= part of the Chat Hackers dashboard link. Used by both the bouncer and message rules</span><input id="room" placeholder="!abc123:matrix.org" required></label><button>Save room</button></form>
+
 <section class="card"><div class="head"><h2>People</h2><div id="filters" class="filters"></div></div>
 <div class="table-wrap"><table><thead><tr><th>Person</th><th>Number</th><th>Status</th><th></th></tr></thead><tbody id="rows"></tbody></table></div>
 <p id="empty" class="empty" hidden>Nobody here yet. People appear as they join or post.</p></section>
@@ -14,9 +16,8 @@
 <section class="card"><div class="head"><h2>Flagged messages</h2><label class="check"><input id="show-reviewed" type="checkbox">Show reviewed</label></div>
 <div id="flags"></div></section>
 
-<details class="card" id="settings-card"><summary><h2>Group settings</h2></summary>
+<details class="card" id="settings-card"><summary><h2>Bouncer settings</h2></summary>
 <form id="settings"><div class="grid">
-<label>Room ID <span>the roomId= part of the dashboard link</span><input id="room" placeholder="!abc123:matrix.org" required></label>
 <label>Auto-remove new joiners<select id="auto-kick"><option value="off">Off</option><option value="unlisted">Remove if their number isn't on the list</option><option value="strict">Also remove if WhatsApp hides their number</option></select></label>
 <label>Number format<select id="country"><option value="GB">UK + international</option><option value="international">International only</option></select></label>
 <label>Never remove or flag <span>Matrix IDs, one per line</span><textarea id="exempt" rows="2" placeholder="@whatsapp_447700900000:matrix.org"></textarea></label>

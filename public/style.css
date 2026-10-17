@@ -29,3 +29,5 @@ td small,.flag small{display:block;font-size:12px;color:var(--muted);margin-top:
 footer{display:flex;gap:14px;flex-wrap:wrap;justify-content:center;padding-top:6px}
 [hidden]{display:none!important}
 @media (max-width:700px){.grid{grid-template-columns:1fr}.rule{grid-template-columns:auto 1fr 1fr}.rule input[data-field=exceptions]{grid-column:2/3}th:nth-child(2),td:nth-child(2){display:none}.login{flex-direction:column;align-items:stretch}}
+.room{display:flex;gap:10px;align-items:end}.room label{flex:1;margin:0}.room.needs{border-color:var(--warn);background:var(--warn-bg)}
+@media (max-width:700px){.room{flex-direction:column;align-items:stretch}}
