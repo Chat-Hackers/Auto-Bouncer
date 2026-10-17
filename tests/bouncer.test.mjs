@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import { normalizePhone,parseCSV,prepareImport,report,participantFromEvent } from '../bouncer.mjs';
 const state=()=>({settings:{roomId:'!room:test',country:'GB',exemptUserIds:[]},approved:prepareImport('approved','phone,name,reference\n07700900101,A,A\n+447700900102,B,B'),participants:prepareImport('participants','phone,name,matrix_user_id\n00447700900101,A,@a:test\n07700900199,Unknown,@unknown:test\n,Opaque,@lid:test'),decisions:{}});
 test('normalises UK local/international formats without guessing opaque identities',()=>{
- for(const input of ['07700 900101','+44 (0)7700 900101','0044-7700-900101','+44 7700 900101'])assert.equal(normalizePhone(input).number,'+447700900101');
+ for(const input of ['07700 900101','+44 (0)7700 900101','0044-7700-900101','+44 7700 900101','44 7700 900101','447700900101'])assert.equal(normalizePhone(input).number,'+447700900101');
  assert.equal(normalizePhone('+1 (202) 555-0101','international').number,'+12025550101');
- for(const input of ['447700900101','@whatsapp_1234:matrix.test','07700900101 ext 2','123','','+4407700900101'])assert.ok(normalizePhone(input).error);
+ for(const input of ['@whatsapp_1234:matrix.test','07700900101 ext 2','123','','+4407700900101'])assert.ok(normalizePhone(input).error);
  assert.ok(normalizePhone('07700900101','international').error);
 });
 test('CSV quoted fields, missing values and duplicate diagnostics',()=>{

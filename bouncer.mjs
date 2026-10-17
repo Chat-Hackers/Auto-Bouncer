@@ -31,6 +31,7 @@ export function normalizePhone(raw, country='GB') {
   if(/[^+\d\s().-]/.test(value))return {number:null,error:'Unsupported characters or extension; review the number'};
   value=value.replace(/[\s().-]/g,'');
   if(value.startsWith('00'))value='+'+value.slice(2);
+  else if(/^[1-9]\d{10,14}$/.test(value))value='+'+value; // international number typed without + (447700900101)
   if(country==='GB'&&/^0[1-9]\d{9}$/.test(value))value='+44'+value.slice(1);
   if(!/^\+[1-9]\d{7,14}$/.test(value))return {number:null,error:'Use +countrycode or 00countrycode; UK local numbers need a leading 0'};
   if(value.startsWith('+44')&&!/^\+44[1-9]\d{9}$/.test(value))return {number:null,error:'Expected a standard 10-digit UK national number after +44'};
@@ -38,6 +39,8 @@ export function normalizePhone(raw, country='GB') {
 }
 export function prepareImport(kind,csv,country='GB') {
   if(!['approved','participants'].includes(kind))throw Error('Choose approved or participants');
+  // A plain list of numbers, one per line, needs no header row.
+  if(kind==='approved'&&typeof csv==='string'&&!/[a-z]/i.test(csv.trim().split('\n')[0]||''))csv='phone\n'+csv;
   const {headers,rows}=parseCSV(csv);
   if(kind==='approved'&&!headers.includes('phone'))throw Error('Approved CSV requires a phone column');
   if(kind==='participants'&&!headers.includes('phone')&&!headers.includes('matrix_user_id'))throw Error('Participant CSV needs phone or matrix_user_id');

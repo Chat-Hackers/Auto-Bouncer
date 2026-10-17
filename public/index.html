@@ -18,12 +18,12 @@
 
 <details class="card" id="settings-card"><summary><h2>Bouncer settings</h2></summary>
 <form id="settings"><div class="grid">
-<label>Auto-remove new joiners<select id="auto-kick"><option value="off">Off</option><option value="unlisted">Remove if their number isn't on the list</option><option value="strict">Also remove if WhatsApp hides their number</option></select></label>
+<label>Auto-remove new joiners<select id="auto-kick"><option value="off">Off</option><option value="unlisted">Remove if their number isn't on the list</option><option value="strict">Remove anyone not approved or allowed, including hidden numbers</option></select></label>
 <label>Number format<select id="country"><option value="GB">UK + international</option><option value="international">International only</option></select></label>
 <label>Never remove or flag <span>Matrix IDs, one per line</span><textarea id="exempt" rows="2" placeholder="@whatsapp_447700900000:matrix.org"></textarea></label>
 </div><button>Save settings</button></form>
-<h3>Approved numbers</h3><p class="hint">CSV with a <code>phone</code> column (optional <code>name</code>). Saving replaces the current list. Add organisers' own numbers too.</p>
-<div class="grid"><textarea id="approved-csv" rows="5" placeholder="phone,name&#10;07700 900101,Sam"></textarea><div><input id="approved-file" type="file" accept=".csv,text/csv"><p id="approved-summary" class="hint"></p></div></div>
+<h3>Approved numbers</h3><p class="hint">One number per line, or a CSV with a <code>phone</code> column. Saving replaces the list. WhatsApp hides many people's numbers; use <strong>Allow</strong> under People for them.</p>
+<div class="grid"><textarea id="approved-csv" rows="5" placeholder="07700 900101&#10;44 7700 900102"></textarea><div><input id="approved-file" type="file" accept=".csv,text/csv"><p id="approved-summary" class="hint"></p></div></div>
 <button id="approved-save">Save list</button></details>
 
 <details class="card" id="rules-card"><summary><h2>Message rules</h2></summary>
