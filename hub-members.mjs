@@ -72,3 +72,20 @@ export async function fetchMemberSnapshot(hubOrigin, roomId, secret, fetcher = f
   try { return JSON.parse(Buffer.concat(chunks).toString('utf8')); }
   catch { throw Error('Hub members API returned invalid JSON'); }
 }
+
+export const DEFAULT_HUB_URL = 'https://dev.dashboard.chathackers.uk';
+
+// The Hub's POST /api/kick (tool-hub 3933e9b) authenticates with the module secret in the
+// query string and answers before Matrix confirms; the later leave event confirms removal.
+export async function sendKicks(hubOrigin, roomId, secret, kicks, fetcher = fetch) {
+  const url = new URL('/api/kick', hubOrigin || DEFAULT_HUB_URL);
+  url.searchParams.set('roomId', roomId); url.searchParams.set('toolId', 'whatsapp-bouncer'); url.searchParams.set('secret', secret);
+  return Promise.all(kicks.map(async ({ userId, reason }) => {
+    try {
+      const response = await fetcher(url, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ userId, reason }), redirect: 'error', signal: AbortSignal.timeout(10000) });
+      const result = await response.json().catch(() => ({}));
+      return response.ok && result.success === true ? { userId, ok: true } : { userId, ok: false, error: String(result.message || `Hub answered ${response.status}`).slice(0, 300) };
+    } catch { return { userId, ok: false, error: 'Could not reach the Hub' }; }
+  }));
+}

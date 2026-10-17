@@ -81,10 +81,20 @@ export function report(state,now=Date.now()) {
     return {...p,status,reason,signature,approvedMatches:matches.map(a=>({name:a.name,reference:a.reference,phone:a.phone})),decision:current?decision:null,previousDecision:decision&&!current?decision:null};
   });
 }
+// mautrix-whatsapp names ghost users after the WhatsApp number (@whatsapp_447700900101:server).
+// Privacy IDs (@whatsapp_lid-…) carry no number and stay unavailable.
+export function phoneFromUserId(userId,country='GB') {
+  const digits=/^@whatsapp_(\d{7,15}):/.exec(userId||'')?.[1];
+  if(!digits)return null;
+  const phone=normalizePhone('+'+digits,country);
+  return {phoneRaw:'+'+digits,phone:phone.number,phoneError:phone.error,phoneSource:'bridge-id'};
+}
+export const isBridgedUser=userId=>/^@whatsapp_[^:]+:/.test(userId||'');
 export function participantFromEvent(event,settings,existing=[]) {
   if(event?.type!=='m.room.member'||!['join','leave','ban'].includes(event.content?.membership))return null;
   if(event.room_id!==settings.roomId)return null;
   if(typeof event.event_id!=='string'||!event.event_id||event.event_id.length>500||typeof event.state_key!=='string'||!/^@[^\s:]+:[^\s]+$/.test(event.state_key)||event.state_key.length>300)throw Error('Membership events require event_id and a valid state_key');
   const prior=existing.find(p=>p.userId===event.state_key);
-  return {id:prior?.id||digest(['matrix',event.room_id,event.state_key]).slice(0,20),name:String(event.content.displayname||prior?.name||'').slice(0,300),userId:event.state_key,phoneRaw:prior?.phoneRaw||'',phone:prior?.phone||null,phoneError:prior?.phoneError||'No verified number mapping for this Matrix identity',phoneSource:prior?.phoneSource||(prior?.phone?'csv':'unavailable'),reference:'',issues:[],source:prior?.source||'observed event',membership:event.content.membership,eventId:event.event_id,eventTs:Number.isFinite(event.origin_server_ts)?event.origin_server_ts:0};
+  const bridged=!prior?.phone&&phoneFromUserId(event.state_key,settings.country);
+  return {id:prior?.id||digest(['matrix',event.room_id,event.state_key]).slice(0,20),name:String(event.content.displayname||prior?.name||'').slice(0,300),userId:event.state_key,phoneRaw:bridged?bridged.phoneRaw:prior?.phoneRaw||'',phone:bridged?bridged.phone:prior?.phone||null,phoneError:bridged?bridged.phoneError:prior?.phoneError||'WhatsApp is hiding this number',phoneSource:bridged?'bridge-id':prior?.phoneSource||(prior?.phone?'csv':'unavailable'),reference:'',issues:[],source:prior?.source||'observed event',membership:event.content.membership,eventId:event.event_id,eventTs:Number.isFinite(event.origin_server_ts)?event.origin_server_ts:0};
 }

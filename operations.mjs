@@ -1,22 +1,28 @@
 import { timingSafeEqual } from 'node:crypto';
-import { digest,prepareImport,report,participantFromEvent } from './bouncer.mjs';
+import { digest,prepareImport,report,participantFromEvent,phoneFromUserId,isBridgedUser } from './bouncer.mjs';
 import { bridgeParticipant,applyMemberSnapshot } from './hub-members.mjs';
 import { initialModeration,ensureModeration,publicModeration,moderateEvent,moderationRoute,loadModerationDemo } from './moderation-operations.mjs';
-export const initialState=()=>({settings:{roomId:'',country:'GB',exemptUserIds:[]},approved:[],participants:[],decisions:{},seen:{},audit:[],imports:{},moderation:initialModeration()});
+export const autoKickModes=['off','unlisted','strict'];
+export const initialState=()=>({settings:{roomId:'',country:'GB',exemptUserIds:[],autoKick:'off'},approved:[],participants:[],decisions:{},seen:{},audit:[],imports:{},moderation:initialModeration()});
 export const secureEqual=(a,b)=>{const x=Buffer.from(a||''),y=Buffer.from(b||'');return x.length===y.length&&timingSafeEqual(x,y);};
 export async function operate(original,{method,url,headers,input},identity){
- let state=structuredClone(original),changed=false;
+ let state=structuredClone(original),changed=false;const kicks=[];
  ensureModeration(state);
  const save=()=>{changed=true;};
  const req={method,headers},res=null,body=async()=>input;
  const json=(_res,code,data)=>({code,data});
- const publicState=()=>({...state,seen:undefined,moderation:publicModeration(state),rows:report(state),capabilities:{joins:'Membership events, with optional verified Hub phone enrichment',roster:'Sync group members via the Hub members API; CSV fallback available',numbers:'Bridge-supplied numbers or explicit CSV mapping; no display-name or opaque-ID guessing',removal:'Not enabled; reviewed decisions do not remove people',moderation:'Keyword rules, optional warnings and organiser review'},generatedAt:new Date().toISOString()});
+ const publicState=()=>({...state,seen:undefined,moderation:publicModeration(state),rows:report(state),generatedAt:new Date().toISOString()});
 
  const result=await (async()=>{
   if(req.method==='POST'&&url.pathname==='/'){
     if(!secureEqual(url.searchParams.get('hook'),identity.secret))return json(res,401,{error:'Invalid webhook secret'});
     const payload=await body(req);const {event,participant}=payload;
-    if(event?.type==='m.room.message') {const result=moderateEvent(state,payload);if(result.changed)save();return json(res,200,result.data);}
+    if(event?.type==='m.room.message') {
+      if(rememberSender(state,event,payload.botUserId))save();
+      const result=moderateEvent(state,payload);if(result.changed)save();
+      for(const kick of result.kicks||[])requestKick(state,kicks,kick.userId,kick.reason,'message rule');
+      return json(res,200,result.data);
+    }
     const p=participantFromEvent(event,state.settings,state.participants);
     if(!p)return json(res,200,{success:true,response:{},reason:'Not a relevant membership event'});
     if(participant!==undefined){const mapped=bridgeParticipant(participant,state.settings.country,p.userId);Object.assign(p,{phoneRaw:mapped.phoneRaw,phone:mapped.phone,phoneError:mapped.phoneError,phoneSource:mapped.phoneSource,source:'Hub membership event'});}
@@ -29,7 +35,8 @@ export async function operate(original,{method,url,headers,input},identity){
     if(prior)Object.assign(prior,p);else state.participants.push(p);
     for(const [id,at] of Object.entries(state.seen))if(Date.now()-at>7*86400000)delete state.seen[id];
     state.lastObservedAt=new Date().toISOString();save();
-    return json(res,200,{success:true,response:{},reason:'Membership observation recorded; no public response or removal'});
+    if(p.membership==='join'&&shouldAutoKick(state,p.userId,payload.botUserId)){requestKick(state,kicks,p.userId,'Not on the approved list for this group','auto-remove');return json(res,200,{success:true,response:{},reason:'Not on the approved list; removal requested'});}
+    return json(res,200,{success:true,response:{},reason:'Membership observation recorded'});
   }
   if(url.pathname.startsWith('/api/')){
     if(!secureEqual(req.headers.authorization,`Bearer ${identity.adminToken}`))return json(res,401,{error:'Enter the organiser access token printed in the terminal'});
@@ -44,10 +51,13 @@ export async function operate(original,{method,url,headers,input},identity){
       const input=await body(req);
       if(typeof input.roomId!=='string'||input.roomId.length>300||input.roomId&&!input.roomId.startsWith('!'))throw Error('Enter a Matrix room ID starting with !');
       if(!['GB','international'].includes(input.country))throw Error('Choose UK or international-only phone formats');
+      const autoKick=input.autoKick??state.settings.autoKick??'off';
+      if(!autoKickModes.includes(autoKick))throw Error('Choose an auto-remove option');
+      if(state.isDemo&&autoKick!=='off')throw Error('Clear the demo before turning on auto-remove');
       if(!Array.isArray(input.exemptUserIds)||input.exemptUserIds.length>100||input.exemptUserIds.some(s=>typeof s!=='string'||!/^@[^\s:]+:[^\s]+$/.test(s)||s.length>300))throw Error('Use valid Matrix IDs for service-account exclusions');
       if((state.participants.length||state.moderation.incidents.length)&&input.roomId!==state.settings.roomId)throw Error('This instance already holds group data. Use a separate instance/data directory for another group.');
       if(state.approved.length&&input.country!==state.settings.country)throw Error('Phone format is fixed once lists are imported; use a new instance to change it.');
-      state.settings={roomId:input.roomId.trim(),country:input.country,exemptUserIds:input.exemptUserIds};state.audit.push({at:new Date().toISOString(),action:'settings-updated',settings:state.settings});save();return json(res,200,{success:true});
+      state.settings={roomId:input.roomId.trim(),country:input.country,exemptUserIds:input.exemptUserIds,autoKick};state.audit.push({at:new Date().toISOString(),action:'settings-updated',settings:state.settings});save();return json(res,200,{success:true});
     }
     if(req.method==='POST'&&['/api/import/preview','/api/import/apply'].includes(url.pathname)){
       if(state.isDemo)throw Error('Clear the labelled demo before importing real lists');
@@ -62,6 +72,14 @@ export async function operate(original,{method,url,headers,input},identity){
       state[kind]=entries;
       state.imports[kind]={at:new Date().toISOString(),rows:entries.length,issues:entries.filter(e=>e.issues.length).length};
       state.audit.push({at:new Date().toISOString(),action:'list-imported',kind,rows:entries.length});save();return json(res,200,{success:true});
+    }
+    const kick=url.pathname.match(/^\/api\/participants\/([^/]+)\/kick$/);
+    if(req.method==='POST'&&kick){
+      const row=report(state).find(p=>p.id===kick[1]);if(!row)return json(res,404,{error:'Participant not found'});
+      if(state.isDemo)throw Error('Demo participants are not real; nothing to remove');
+      if(row.membership!=='join')throw Error('This person has already left');
+      if(!row.userId)throw Error('This entry has no group identity to remove');
+      requestKick(state,kicks,row.userId,'Removed by an organiser','organiser');save();return json(res,200,{success:true});
     }
     const review=url.pathname.match(/^\/api\/participants\/([^/]+)\/review$/);
     if(req.method==='POST'&&review){
@@ -92,7 +110,7 @@ export async function operate(original,{method,url,headers,input},identity){
     }
     if(req.method==='POST'&&url.pathname==='/api/demo/reset'){
       await body(req);if(!state.isDemo)throw Error('Only the labelled demo can be cleared here');
-      state={settings:{roomId:'',country:'GB',exemptUserIds:[]},approved:[],participants:[],decisions:{},seen:{},audit:[{at:new Date().toISOString(),action:'demo-cleared'}],imports:{}};
+      state={...initialState(),audit:[{at:new Date().toISOString(),action:'demo-cleared'}]};
       save();return json(res,200,{success:true});
     }
     return json(res,404,{error:'Unknown endpoint'});
@@ -100,5 +118,41 @@ export async function operate(original,{method,url,headers,input},identity){
 
  return json(res,404,{error:'Unknown endpoint'});
  })();
- return {...result,state,changed};
+ return {...result,state,changed,kicks};
+}
+// Only bridged WhatsApp members are ever removed automatically: organisers' own Matrix
+// accounts, bots and anyone explicitly exempted or allowed are left alone.
+function shouldAutoKick(state,userId,botUserId){
+ const mode=state.settings.autoKick||'off';
+ if(mode==='off'||state.isDemo||!isBridgedUser(userId)||userId===botUserId)return false;
+ const row=report(state).find(r=>r.userId===userId&&r.membership==='join');
+ if(!row)return false;
+ if(['needs-review','not-approved'].includes(row.status))return true;
+ return mode==='strict'&&['missing-number','invalid-number'].includes(row.status);
+}
+function requestKick(state,kicks,userId,reason,by){
+ if(kicks.some(k=>k.userId===userId))return;
+ const participant=state.participants.find(p=>p.userId===userId);
+ const at=new Date().toISOString();
+ if(participant)participant.kick={status:'requested',at,by};
+ state.audit.push({at,action:'removal-requested',userId,by});
+ kicks.push({userId,reason});
+}
+// Messages from people who joined before the tool was active add them to the list.
+function rememberSender(state,event,botUserId){
+ const userId=event.sender;
+ if(event.room_id!==state.settings.roomId||userId===botUserId||!/^@[^\s:]+:[^\s]+$/.test(userId||'')||userId.length>300)return false;
+ if(state.participants.some(p=>p.userId===userId)||state.participants.length>=5000)return false;
+ const phone=phoneFromUserId(userId,state.settings.country)||{phoneRaw:'',phone:null,phoneError:'WhatsApp is hiding this number',phoneSource:'unavailable'};
+ state.participants.push({id:digest(['matrix',event.room_id,userId]).slice(0,20),name:'',userId,...phone,reference:'',issues:[],source:'seen in chat',membership:'join',eventTs:0});
+ return true;
+}
+export function recordKicks(state,outcomes){
+ for(const {userId,ok,error} of outcomes){
+  const participant=state.participants.find(p=>p.userId===userId);
+  const at=new Date().toISOString();
+  if(participant)participant.kick={...participant.kick,status:ok?'sent':'failed',error:ok?null:error,at};
+  state.audit.push({at,action:ok?'removal-sent':'removal-failed',userId,note:error||undefined});
+ }
+ return {code:200,data:{},state,changed:true};
 }

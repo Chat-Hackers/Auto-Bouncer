@@ -1,4 +1,4 @@
-export const warningText = 'Moderator note: please keep the conversation respectful. A message has been flagged for organiser review. A word match can miss context; no one has been removed.';
+export const warningText = 'Moderator note: please keep the conversation respectful. A message has been flagged for organiser review.';
 export const defaults = () => ({
   mode: 'demo',
   rooms: [],
@@ -35,7 +35,7 @@ export function validateConfig(input) {
     if (!r || typeof r.id !== 'string' || !/^[a-zA-Z0-9_-]{1,80}$/.test(r.id) || ids.has(r.id)) throw Error('Each rule needs a unique id');
     ids.add(r.id);
     if (typeof r.phrase !== 'string' || !normalize(r.phrase) || r.phrase.length > 200) throw Error('Each rule needs a phrase of 1–200 characters');
-    if (!['review', 'warn'].includes(r.action)) throw Error('Supported actions: review or warn');
+    if (!['review', 'warn', 'remove'].includes(r.action)) throw Error('Supported actions: review, warn or remove');
     if (typeof r.enabled !== 'boolean') throw Error('Rule enabled must be true or false');
     return { id:r.id, phrase:r.phrase.trim(), action:r.action, enabled:r.enabled, exceptions:list(r.exceptions, 'Rule exceptions') };
   });

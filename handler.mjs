@@ -1,6 +1,6 @@
-import { operate,secureEqual } from './operations.mjs';
+import { operate,secureEqual,recordKicks } from './operations.mjs';
 import { registrationFor } from './registration.mjs';
-import { fetchMemberSnapshot } from './hub-members.mjs';
+import { fetchMemberSnapshot,sendKicks } from './hub-members.mjs';
 export const responseJSON=(data,status=200,extra={})=>new Response(JSON.stringify(data),{status,headers:{'Content-Type':'application/json','Cache-Control':'no-store','Referrer-Policy':'no-referrer','X-Content-Type-Options':'nosniff',...extra}});
 export async function handleRequest(request,{store,identity,origin,hosted=false,hubOrigin,hubFetch}){
  const url=new URL(request.url);
@@ -34,6 +34,12 @@ export async function handleRequest(request,{store,identity,origin,hosted=false,
   }
   const context={method:request.method,url,headers,input};
   const result=request.method==='GET'?await operate(await store.read(),context,identity):await store.update(state=>operate(state,context,identity));
+  // Removals are sent once, after the decision is committed, never inside a retried operation.
+  if(result.kicks?.length&&result.code<400){
+    const outcomes=await sendKicks(hubOrigin,result.state.settings.roomId,identity.secret,result.kicks,hubFetch);
+    await store.update(state=>recordKicks(state,outcomes)).catch(()=>console.error('Could not record removal outcome'));
+    if(url.pathname.startsWith('/api/')&&outcomes.some(o=>!o.ok))return responseJSON({error:'The Hub did not accept the removal: '+outcomes.find(o=>!o.ok).error},502);
+  }
   return responseJSON(result.data,result.code);
  }catch(error){
   if(error.status===409)return responseJSON({error:'The group data changed concurrently. Refresh and try again.'},409);

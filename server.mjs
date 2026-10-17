@@ -27,7 +27,7 @@ const origin=process.env.PUBLIC_URL||`http://localhost:${process.env.PORT||5059}
 const server=http.createServer(async(req,res)=>{
  try{
   const url=new URL(req.url,'http://localhost');
-  const files={'/':'index.html','/app.js':'app.js','/style.css':'style.css','/moderator-ui.js':'moderator-ui.js'};
+  const files={'/':'index.html','/app.js':'app.js','/style.css':'style.css'};
   if(req.method==='GET'&&files[url.pathname]){
    const file=files[url.pathname];res.writeHead(200,{'Content-Type':file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':'text/html','Cache-Control':'no-store','Referrer-Policy':'no-referrer','Content-Security-Policy':"default-src 'self'; style-src 'self'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'",'X-Content-Type-Options':'nosniff'});res.end(fs.readFileSync(path.join(root,'public',file)));return;
   }
@@ -38,5 +38,5 @@ const server=http.createServer(async(req,res)=>{
 });
 server.listen(Number(process.env.PORT||5059),process.env.HOST||'127.0.0.1',()=>{
  const registration=registrationFor(identity,origin);write('whatsapp-bouncer.json',registration);
- console.log(`WhatsApp Bouncer: http://127.0.0.1:${process.env.PORT||5059}\nOrganiser token: ${identity.adminToken}\nRegistration JSON (share privately):\n${JSON.stringify(registration,null,2)}\nSaved to ${path.join(dir,'whatsapp-bouncer.json')}\nReport-only. No external messages or removals.`);
+ console.log(`WhatsApp Bouncer: http://127.0.0.1:${process.env.PORT||5059}\nOrganiser token: ${identity.adminToken}\nRegistration JSON (share privately):\n${JSON.stringify(registration,null,2)}\nSaved to ${path.join(dir,'whatsapp-bouncer.json')}`);
 });

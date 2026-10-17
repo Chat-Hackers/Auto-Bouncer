@@ -33,6 +33,6 @@ test('ignores bots and exemptions; strips quoted reply fallback; handles edits',
 });
 test('invalid configs cannot enable unsupported actions or unconstrained live rooms',()=>{
   assert.throws(()=>validateConfig({...defaults(),mode:'live'}),/room/);
-  const config=defaults();config.rules[0].action='ban';assert.throws(()=>validateConfig(config),/review or warn/);
+  const config=defaults();config.rules[0].action='ban';assert.throws(()=>validateConfig(config),/review, warn or remove/);
   assert.throws(()=>validateConfig({...defaults(),cooldownSeconds:0}),/cooldown/);
 });

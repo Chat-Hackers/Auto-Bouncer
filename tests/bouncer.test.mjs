@@ -28,9 +28,10 @@ test('changed-number and guest decisions expire or become stale on list or ident
  const current=report(data)[1];data.decisions[current.id]={outcome:'guest-exception',signature:current.signature,expiresAt:'2000-01-01T00:00:00Z'};
  assert.equal(report(data)[1].status,'needs-review');
 });
-test('membership uses state_key rather than actor and does not infer phone from digits',()=>{
- const data=state();const event={type:'m.room.member',room_id:'!room:test',sender:'@admin:test',state_key:'@whatsapp_447700900101:test',event_id:'$join',content:{membership:'join',displayname:'+447700900101'}};
- const participant=participantFromEvent(event,data.settings,[]);assert.equal(participant.userId,event.state_key);assert.equal(participant.phone,null);
+test('membership uses state_key, reads the number from the bridge ID and never from display names',()=>{
+ const data=state();const event={type:'m.room.member',room_id:'!room:test',sender:'@admin:test',state_key:'@whatsapp_447700900101:test',event_id:'$join',content:{membership:'join',displayname:'+447700900199'}};
+ const participant=participantFromEvent(event,data.settings,[]);assert.equal(participant.userId,event.state_key);assert.equal(participant.phone,'+447700900101');assert.equal(participant.phoneSource,'bridge-id');
+ event.state_key='@whatsapp_lid-123456:test';assert.equal(participantFromEvent(event,data.settings,[]).phone,null);
  event.state_key='@a:test';assert.equal(participantFromEvent(event,data.settings,data.participants).phone,'+447700900101');
  event.room_id='!other:test';assert.equal(participantFromEvent(event,data.settings,[]),null);
 });

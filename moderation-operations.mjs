@@ -6,7 +6,7 @@ export function ensureModeration(state) { state.moderation ||= initialModeration
 export function publicModeration(state) {
  const m=ensureModeration(state);
  return {config:{...m.config,rooms:state.settings.roomId?[state.settings.roomId]:[]},incidents:m.incidents,
-  capabilities:{warning:'Hub event response; delivery unconfirmed',removal:'Not enabled: working kick contract still required',deletion:'Not enabled'}};
+};
 }
 export function moderateEvent(state,payload) {
  const m=ensureModeration(state),{event,botUserId}=payload;
@@ -23,13 +23,14 @@ export function moderateEvent(state,payload) {
  const wantsWarning=result.matches.some(match=>match.action==='warn');
  const inCooldown=now-(m.lastWarnings[cooldownKey]||0)<config.cooldownSeconds*1000;
  const reply=!state.isDemo&&config.mode==='live'&&wantsWarning&&!inCooldown;
+ const remove=!state.isDemo&&config.mode==='live'&&result.matches.some(match=>match.action==='remove')&&event.sender!==botUserId;
  const incident={id:key.slice(0,32),eventId:event.event_id,roomId:event.room_id,sender:event.sender,
   displayName:String(payload.displayName||event.sender).slice(0,300),text:result.text,matches:result.matches,exceptions:result.exceptions,
   receivedAt:new Date(now).toISOString(),status:'pending',note:'',mode:state.isDemo?'demo':config.mode,
-  warning:reply?'returned-to-hub':state.isDemo||config.mode==='demo'?'demo-only':wantsWarning&&inCooldown?'cooldown':'review-only'};
+  warning:reply?'returned-to-hub':state.isDemo||config.mode==='demo'?'demo-only':wantsWarning&&inCooldown?'cooldown':'review-only',removal:remove?'requested':null};
  m.incidents.unshift(incident);
  if(reply)m.lastWarnings[cooldownKey]=now;
- return {changed:true,data:{success:true,response:reply?{message:config.warning,context:{autoModerator:true,moduleEvent:true}}:{},incidentId:incident.id}};
+ return {changed:true,kicks:remove?[{userId:event.sender,reason:'Removed by the group moderator'}]:[],data:{success:true,response:reply?{message:config.warning,context:{autoModerator:true,moduleEvent:true}}:{},incidentId:incident.id}};
 }
 
 export function moderationRoute(state,{method,pathname,input}) {
