@@ -1,3 +1,6 @@
+// Must match the module id the Hub has registered and activated in the room.
+export const HUB_TOOL_ID = 'bouncer';
+
 import { digest, normalizePhone } from './bouncer.mjs';
 
 const validUserId = value => typeof value === 'string' && value.length <= 300 && /^@[^\s:]+:[^\s]+$/.test(value);
@@ -55,7 +58,7 @@ export async function fetchMemberSnapshot(hubOrigin, roomId, secret, fetcher = f
     throw Error('HUB_URL must be an HTTPS origin, such as https://dev.dashboard.chathackers.uk');
   }
   url.pathname = '/api/members';
-  url.searchParams.set('roomId', roomId); url.searchParams.set('toolId', 'whatsapp-bouncer');
+  url.searchParams.set('roomId', roomId); url.searchParams.set('toolId', HUB_TOOL_ID);
   let response;
   try { response = await fetcher(url, { headers: { Authorization: `Bearer ${secret}`, Accept: 'application/json' }, redirect: 'error', signal: AbortSignal.timeout(15000) }); }
   catch { throw Error('Could not reach the Hub members API. Ask your Hub operator to check the connection.'); }
@@ -79,7 +82,7 @@ export const DEFAULT_HUB_URL = 'https://dev.dashboard.chathackers.uk';
 // query string and answers before Matrix confirms; the later leave event confirms removal.
 export async function sendKicks(hubOrigin, roomId, secret, kicks, fetcher = fetch) {
   const url = new URL('/api/kick', hubOrigin || DEFAULT_HUB_URL);
-  url.searchParams.set('roomId', roomId); url.searchParams.set('toolId', 'whatsapp-bouncer'); url.searchParams.set('secret', secret);
+  url.searchParams.set('roomId', roomId); url.searchParams.set('toolId', HUB_TOOL_ID); url.searchParams.set('secret', secret);
   return Promise.all(kicks.map(async ({ userId, reason }) => {
     try {
       const response = await fetcher(url, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' },

@@ -27,7 +27,7 @@ test('auto-remove kicks bridged joiners not on the list and spares everyone else
  await t.join('@organiser:test',4);
  await t.join('@whatsapp_447700900900:test',5);
  assert.deepEqual(t.sent.map(s=>s.body.userId),['@whatsapp_447700900102:test']);
- const {url}=t.sent[0];assert.equal(url.pathname,'/api/kick');assert.equal(url.searchParams.get('roomId'),'!room:test');assert.equal(url.searchParams.get('toolId'),'whatsapp-bouncer');assert.equal(url.searchParams.get('secret'),identity.secret);
+ const {url}=t.sent[0];assert.equal(url.pathname,'/api/kick');assert.equal(url.searchParams.get('roomId'),'!room:test');assert.equal(url.searchParams.get('toolId'),'bouncer');assert.equal(url.searchParams.get('secret'),identity.secret);
  assert.equal(t.state().participants.find(p=>p.userId==='@whatsapp_447700900102:test').kick.status,'sent');
 });
 test('strict mode also removes hidden numbers; off mode removes nobody',async()=>{

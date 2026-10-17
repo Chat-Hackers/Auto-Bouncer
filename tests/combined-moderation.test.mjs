@@ -21,7 +21,7 @@ test('existing Bouncer state acquires moderation defaults without changing lists
 
 test('one registration subscribes to both event types and preserves its module identity',()=>{
  const registration=registrationFor(identity,'https://auto-bouncer.vercel.app','/webhook');
- assert.equal(registration.id,'whatsapp-bouncer');assert.equal(registration.secret,identity.secret);
+ assert.equal(registration.id,'bouncer');assert.equal(registration.secret,identity.secret);
  assert.deepEqual(registration.event_types,['m.room.member','m.room.message']);
 });
 
