@@ -22,7 +22,7 @@ function renderPeople(){
   who.append(node('strong',r.name||r.userId||'Unknown'),node('small',r.name?r.userId:''));
   const left=r.membership!=='join',[label,tone]=left&&r.kick?.status==='sent'?['Removed','muted']:statusText[r.status]||[r.status,'muted'];
   status.append(node('span',label,'tag '+tone));
-  if(r.kick&&!left)status.append(node('small',r.kick.status==='failed'?'Removal failed: '+r.kick.error:'Removal sent',r.kick.status==='failed'?'error':''));
+  if(r.kick&&!left)status.append(node('small',r.kick.status==='failed'?'Removal failed: '+r.kick.error:'Removal requested. Waiting for them to leave',r.kick.status==='failed'?'error':''));
   if(!left&&r.status!=='service-account'){
    if(['exception','changed-number'].includes(r.status))actions.append(button('Undo allow',run(()=>review(r,'clear','Allowance removed by organiser'))));
    else if(r.status!=='on-list')actions.append(button('Allow',run(()=>review(r,'guest-exception','Allowed by organiser'))));
@@ -32,7 +32,7 @@ function renderPeople(){
  }));
 }
 async function review(r,outcome,note){await api(`participants/${r.id}/review`,{signature:r.signature,outcome,note});await refresh();notice(outcome==='clear'?'Allowance removed.':`${r.name||r.userId} allowed.`);}
-async function kick(r){if(!confirm(`Remove ${r.name||r.userId} from the group?`))return false;await api(`participants/${r.id}/kick`,{});await refresh();notice(`Removal sent for ${r.name||r.userId}.`);return true;}
+async function kick(r){if(!confirm(`Remove ${r.name||r.userId} from the group?`))return false;await api(`participants/${r.id}/kick`,{});await refresh();notice(`Removal requested for ${r.name||r.userId}. If they stay, the Hub bot may need a higher power level than them.`);return true;}
 
 // Flagged messages
 function renderFlags(){
